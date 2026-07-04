@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>British GP Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Mission Control • British Grand Prix</p>
+        <h1>2026 Podium Intelligence</h1>
+        <p class="subtitle">An F1-inspired machine-learning scorecard for the Silverstone race weekend.</p>
+      </div>
+      <div class="hero-badge">Live model output</div>
+    </header>
+
+    <section class="metrics" id="metrics"></section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Prediction deck</p>
+          <h2>Podium Probability Ranking</h2>
+        </div>
+        <div class="status-pill" id="status-pill">Loading...</div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Driver</th>
+            <th>Team</th>
+            <th>Grid</th>
+            <th>Podium Prob.</th>
+            <th>Predicted Finish</th>
+          </tr>
+        </thead>
+        <tbody id="driver-table-body"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    async function loadPredictions() {
+      const metrics = document.getElementById('metrics');
+      const tbody = document.getElementById('driver-table-body');
+      const statusPill = document.getElementById('status-pill');
+
+      statusPill.textContent = 'Loading...';
+      try {
+        const response = await fetch('/api/predictions');
+        const data = await response.json();
+
+        metrics.innerHTML = `
+          <div class="metric-card"><span class="metric-label">Accuracy</span><strong>${(data.metrics.accuracy * 100).toFixed(1)}%</strong></div>
+          <div class="metric-card"><span class="metric-label">Precision</span><strong>${(data.metrics.precision * 100).toFixed(1)}%</strong></div>
+          <div class="metric-card"><span class="metric-label">Recall</span><strong>${(data.metrics.recall * 100).toFixed(1)}%</strong></div>
+          <div class="metric-card"><span class="metric-label">ROC-AUC</span><strong>${data.metrics.rocAuc.toFixed(2)}</strong></div>
+        `;
+
+        tbody.innerHTML = data.drivers.map(driver => `
+          <tr>
+            <td><div class="driver-name">${driver.fullName}</div></td>
+            <td>${driver.teamName}</td>
+            <td>${driver.gridPosition ?? '—'}</td>
+            <td>${(driver.podiumProbability * 100).toFixed(1)}%</td>
+            <td>P${driver.predictedFinish}</td>
+          </tr>
+        `).join('');
+
+        statusPill.textContent = 'Model ready';
+      } catch (error) {
+        statusPill.textContent = 'Sync failed';
+        tbody.innerHTML = '<tr><td colspan="5">Unable to load prediction data.</td></tr>';
+      }
+    }
+
+    loadPredictions();
+  </script>
+</body>
+</html>
