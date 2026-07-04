@@ -1,0 +1,5 @@
+.venv
+venv
+__pycache__
+f1_cache
+.git

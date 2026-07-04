@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import data_loader
 import model_logic
+import model_store
 
 st.set_page_config(page_title="British GP Predictor", page_icon="🏎️", layout="wide")
 st.title("🇬🇧 British GP Race Predictor")
@@ -19,8 +20,8 @@ if results.empty:
     st.error("No British GP rows were loaded. Please check the FastF1 connection or cached data.")
     st.stop()
 
-with st.spinner("Training the podium and finishing-position models..."):
-    model_bundle = model_logic.train_british_gp_model(results)
+with st.spinner("Loading or training the podium and finishing-position models..."):
+    model_bundle = model_store.get_or_train_models(results)
 
 st.subheader("Model performance")
 col1, col2 = st.columns(2)

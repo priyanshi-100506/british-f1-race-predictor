@@ -3,81 +3,129 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>British GP Predictor</title>
+  <title>Mission Control • British GP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <div class="app-shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Mission Control • British Grand Prix</p>
-        <h1>2026 Podium Intelligence</h1>
-        <p class="subtitle">An F1-inspired machine-learning scorecard for the Silverstone race weekend.</p>
-      </div>
-      <div class="hero-badge">Live model output</div>
+    <header class="header">
+      <div class="header-branding">Mission Control • British GP</div>
     </header>
 
-    <section class="metrics" id="metrics"></section>
+    <div class="dashboard-content fade-in">
+        <section class="telemetry-section" id="telemetry">
+            <!-- Telemetry Cards injected here -->
+        </section>
 
-    <section class="panel">
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">Prediction deck</p>
-          <h2>Podium Probability Ranking</h2>
+        <div class="grid-layout">
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>Podium Probability</h2>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Driver</th>
+                                <th>Team</th>
+                                <th>Grid Position</th>
+                                <th>Podium Probability</th>
+                            </tr>
+                        </thead>
+                        <tbody id="driver-table-body">
+                            <!-- Rows injected here -->
+                            <tr>
+                                <td colspan="4" class="loading-state">Initializing Telemetry...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>Feature Importance</h2>
+                </div>
+                <div id="feature-importance" class="feature-chart">
+                    <!-- Feature bars injected here -->
+                    <div class="loading-state">Initializing Telemetry...</div>
+                </div>
+            </section>
         </div>
-        <div class="status-pill" id="status-pill">Loading...</div>
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Driver</th>
-            <th>Team</th>
-            <th>Grid</th>
-            <th>Podium Prob.</th>
-            <th>Predicted Finish</th>
-          </tr>
-        </thead>
-        <tbody id="driver-table-body"></tbody>
-      </table>
-    </section>
+    </div>
   </div>
 
   <script>
     async function loadPredictions() {
-      const metrics = document.getElementById('metrics');
+      const telemetry = document.getElementById('telemetry');
       const tbody = document.getElementById('driver-table-body');
-      const statusPill = document.getElementById('status-pill');
+      const featureImportance = document.getElementById('feature-importance');
 
-      statusPill.textContent = 'Loading...';
       try {
         const response = await fetch('/api/predictions');
         const data = await response.json();
 
-        metrics.innerHTML = `
-          <div class="metric-card"><span class="metric-label">Accuracy</span><strong>${(data.metrics.accuracy * 100).toFixed(1)}%</strong></div>
-          <div class="metric-card"><span class="metric-label">Precision</span><strong>${(data.metrics.precision * 100).toFixed(1)}%</strong></div>
-          <div class="metric-card"><span class="metric-label">Recall</span><strong>${(data.metrics.recall * 100).toFixed(1)}%</strong></div>
-          <div class="metric-card"><span class="metric-label">ROC-AUC</span><strong>${data.metrics.rocAuc.toFixed(2)}</strong></div>
+        // Telemetry Cards
+        telemetry.innerHTML = `
+          <div class="telemetry-card">
+            <div class="telemetry-label">Accuracy</div>
+            <div class="telemetry-value">${(data.metrics.accuracy * 100).toFixed(1)}%</div>
+          </div>
+          <div class="telemetry-card">
+            <div class="telemetry-label">ROC-AUC</div>
+            <div class="telemetry-value">${(data.metrics.rocAuc).toFixed(3)}</div>
+          </div>
+          <div class="telemetry-card">
+            <div class="telemetry-label">MAE</div>
+            <div class="telemetry-value">${(data.metrics.mae).toFixed(2)}</div>
+          </div>
         `;
 
-        tbody.innerHTML = data.drivers.map(driver => `
-          <tr>
-            <td><div class="driver-name">${driver.fullName}</div></td>
-            <td>${driver.teamName}</td>
-            <td>${driver.gridPosition ?? '—'}</td>
-            <td>${(driver.podiumProbability * 100).toFixed(1)}%</td>
-            <td>P${driver.predictedFinish}</td>
-          </tr>
-        `).join('');
+        // 80/20 Rule: Highlight top 20%
+        // Let's assume top 4 drivers (out of 20) are the top 20%
+        const topCount = Math.max(1, Math.ceil(data.drivers.length * 0.20));
 
-        statusPill.textContent = 'Model ready';
+        tbody.innerHTML = data.drivers.map((driver, index) => {
+            const isTopTier = index < topCount;
+            const probPct = (driver.podiumProbability * 100).toFixed(1);
+            
+            return `
+              <tr class="${isTopTier ? 'highlight-row' : ''}">
+                <td><strong>${driver.fullName}</strong></td>
+                <td>${driver.teamName}</td>
+                <td>P${driver.gridPosition ?? '-'}</td>
+                <td>
+                  <div class="prob-cell">
+                    <span class="prob-value">${probPct}%</span>
+                    <div class="bar-chart-bg">
+                      <div class="bar-chart-fill" style="width: ${probPct}%;"></div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            `;
+        }).join('');
+
+        // Feature Importance Chart
+        const featureEntries = Object.entries(data.featureImportance || {});
+        featureImportance.innerHTML = featureEntries.length
+          ? featureEntries.map(([name, value]) => `
+              <div class="chart-row">
+                <div class="chart-label">${name.replace(/_/g, ' ')}</div>
+                <div class="chart-bar-container">
+                    <div class="chart-bar" style="width: ${Math.max(1, value * 100)}%;"></div>
+                </div>
+              </div>
+            `).join('')
+          : '<div class="loading-state">No features available.</div>';
+
       } catch (error) {
-        statusPill.textContent = 'Sync failed';
-        tbody.innerHTML = '<tr><td colspan="5">Unable to load prediction data.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="error-state">Telemetry sync failed. Check connection.</td></tr>';
+        featureImportance.innerHTML = '<div class="error-state">Failed to load.</div>';
+        telemetry.innerHTML = '<div class="error-state">Failed to load telemetry.</div>';
       }
     }
 

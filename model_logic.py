@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import accuracy_score, mean_absolute_error, mean_squared_error, precision_score, recall_score, roc_auc_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 
 
 def prepare_feature_frame(data):
@@ -59,14 +59,45 @@ def train_british_gp_model(data):
         X, y_podium, y_pos, test_size=0.2, random_state=42
     )
 
-    clf = xgb.XGBClassifier(n_estimators=120, learning_rate=0.1, max_depth=4, eval_metric="logloss")
-    clf.fit(X_train, y_pod_tr)
+    tuned_clf = GridSearchCV(
+        estimator=xgb.XGBClassifier(eval_metric="logloss", random_state=42),
+        param_grid={
+            "n_estimators": [80, 120],
+            "learning_rate": [0.05, 0.1],
+            "max_depth": [3, 4],
+            "subsample": [0.8, 1.0],
+            "colsample_bytree": [0.8, 1.0],
+        },
+        cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=42),
+        scoring="accuracy",
+        n_jobs=-1,
+    )
+    tuned_clf.fit(X_train, y_pod_tr)
 
-    reg = xgb.XGBRegressor(n_estimators=120, learning_rate=0.1, max_depth=4)
+    tuned_reg = GridSearchCV(
+        estimator=xgb.XGBRegressor(random_state=42),
+        param_grid={
+            "n_estimators": [80, 120],
+            "learning_rate": [0.05, 0.1],
+            "max_depth": [3, 4],
+            "subsample": [0.8, 1.0],
+            "colsample_bytree": [0.8, 1.0],
+        },
+        cv=3,
+        scoring="neg_mean_absolute_error",
+        n_jobs=-1,
+    )
+    tuned_reg.fit(X_train, y_pos_tr)
+
+    clf = tuned_clf.best_estimator_
+    reg = tuned_reg.best_estimator_
+    clf.fit(X_train, y_pod_tr)
     reg.fit(X_train, y_pos_tr)
 
     pod_pred = clf.predict(X_test)
     pos_pred = reg.predict(X_test)
+
+    feature_importance = pd.Series(clf.feature_importances_, index=X.columns).sort_values(ascending=False)
 
     metrics = {
         "podium_accuracy": accuracy_score(y_pod_te, pod_pred),
@@ -78,6 +109,7 @@ def train_british_gp_model(data):
         "model_clf": clf,
         "model_reg": reg,
         "feature_columns": X.columns.tolist(),
+        "feature_importance": feature_importance,
     }
     return metrics
 

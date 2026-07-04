@@ -1,8 +1,14 @@
+import argparse
 import pandas as pd
 import data_loader, model_logic
+import model_store
+
+parser = argparse.ArgumentParser(description="Validate British GP models.")
+parser.add_argument("--retrain", action="store_true", help="Force retrain models")
+args = parser.parse_args()
 
 train_df = data_loader.get_british_gp_data(years=(2021, 2022, 2023, 2024, 2025))
-res = model_logic.train_british_gp_model(train_df)
+res = model_store.get_or_train_models(train_df, force_retrain=args.retrain)
 print(f"Accuracy: {res['podium_accuracy']:.2f}")
 print(f"Precision: {res['precision']:.2f}")
 print(f"Recall: {res['recall']:.2f}")
